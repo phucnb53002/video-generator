@@ -5,13 +5,16 @@ interface AgentVideoPayload {
   prompt: string;
   voiceId?: string;
   temperature?: number;
+  durationSec?: number;
+  orientation?: string;
 }
 
 export async function POST(request: Request) {
   try {
     const body: AgentVideoPayload = await request.json();
 
-    const { avatarId, prompt, voiceId, temperature } = body;
+    const { avatarId, prompt, voiceId, temperature, durationSec, orientation } =
+      body;
 
     if (!avatarId) {
       return NextResponse.json(
@@ -27,21 +30,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const requestBody: Record<string, unknown> = {
+    const config: Record<string, unknown> = {
       avatar_id: avatarId,
-      prompt: prompt,
     };
 
-    if (voiceId) {
-      requestBody.voice_id = voiceId;
+    if (durationSec) {
+      config.duration_sec = durationSec;
     }
 
-    if (temperature !== undefined) {
-      requestBody.temperature = temperature;
+    if (orientation) {
+      config.orientation = orientation;
     }
+
+    const requestBody = {
+      prompt: prompt,
+      config,
+    };
 
     const response = await fetch(
-      `${process.env.HEYGEN_BASE_URL || "https://api.heygen.com"}/v1/video.generate.agent`,
+      `${
+        process.env.HEYGEN_BASE_URL || "https://api.heygen.com"
+      }/v1/video_agent/generate`,
       {
         method: "POST",
         headers: {
@@ -55,7 +64,11 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: error.message || `Failed to generate agent video: ${response.status}` },
+        {
+          error:
+            error.message ||
+            `Failed to generate agent video: ${response.status}`,
+        },
         { status: response.status }
       );
     }

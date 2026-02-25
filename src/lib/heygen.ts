@@ -63,7 +63,7 @@ interface VoicesResponse {
     voices: HeyGenVoice[];
   };
 }
-const TARGET_TALKING_PHOTO_ID = "72d961a24fef43d6adf577038f69385b";
+const TARGET_TALKING_PHOTO_ID = "d2146c6f99c84b3084312dc82958a5b1";
 export async function fetchCharacters(): Promise<CharacterItem[]> {
   const response = await fetch(`${HEYGEN_BASE_URL}/v2/avatars`, {
     method: "GET",

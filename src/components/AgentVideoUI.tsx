@@ -17,6 +17,10 @@ interface AgentVideoUIProps {
   onPromptChange: (prompt: string) => void;
   selectedVoiceId: string | null;
   onSelectVoice: (voiceId: string | null) => void;
+  duration: number;
+  onDurationChange: (duration: number) => void;
+  orientation: string;
+  onOrientationChange: (orientation: string) => void;
   isGenerating: boolean;
   videoStatus: string;
   onGenerate: () => void;
@@ -34,6 +38,10 @@ export default function AgentVideoUI({
   onPromptChange,
   selectedVoiceId,
   onSelectVoice,
+  duration,
+  onDurationChange,
+  orientation,
+  onOrientationChange,
   isGenerating,
   videoStatus,
   onGenerate,
@@ -149,6 +157,40 @@ export default function AgentVideoUI({
             </svg>
           </div>
         </button>
+      </section>
+
+      <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Video Settings
+        </h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Duration (seconds)
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={duration}
+              onChange={(e) => onDurationChange(Number(e.target.value))}
+              placeholder="e.g. 30"
+              className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Orientation
+            </label>
+            <select
+              value={orientation}
+              onChange={(e) => onOrientationChange(e.target.value)}
+              className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+            >
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </div>
+        </div>
       </section>
 
       <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Modal from "@/components/Modal";
@@ -8,6 +8,7 @@ import VideoPlayer from "@/components/VideoPlayer";
 import SelectedCharacterDisplay from "@/components/SelectedCharacterDisplay";
 import SelectedVoiceDisplay from "@/components/SelectedVoiceDisplay";
 import AgentVideoUI from "@/components/AgentVideoUI";
+import StreamingAvatarUI from "@/components/StreamingAvatarUI";
 import {
   CharacterItem,
   VoiceItem,
@@ -23,7 +24,7 @@ type VideoStatus =
   | "completed"
   | "failed";
 
-type AppMode = "generate" | "agent";
+type AppMode = "generate" | "agent" | "streaming";
 
 interface Toast {
   id: string;
@@ -57,6 +58,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>("idle");
   const [videoId, setVideoId] = useState<string | null>(null);
+  const [agentVideoId, setAgentVideoId] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -66,16 +68,19 @@ export default function Home() {
   const [tempSelectedCharacterId, setTempSelectedCharacterId] = useState<
     string | null
   >(null);
-  const [tempSelectedCharacterType, setTempSelectedCharacterType] =
-    useState<"avatar" | "talking_photo" | null>(null);
-  const [tempSelectedVoiceId, setTempSelectedVoiceId] = useState<
-    string | null
+  const [tempSelectedCharacterType, setTempSelectedCharacterType] = useState<
+    "avatar" | "talking_photo" | null
   >(null);
+  const [tempSelectedVoiceId, setTempSelectedVoiceId] = useState<string | null>(
+    null
+  );
 
   const [agentSelectedAvatar, setAgentSelectedAvatar] =
     useState<CharacterItem | null>(null);
   const [agentPrompt, setAgentPrompt] = useState("");
   const [agentVoiceId, setAgentVoiceId] = useState<string | null>(null);
+  const [agentDuration, setAgentDuration] = useState<number>(30);
+  const [agentOrientation, setAgentOrientation] = useState<string>("portrait");
 
   const showToast = useCallback(
     (message: string, type: "error" | "success") => {
@@ -169,10 +174,7 @@ export default function Home() {
       !selectedVoiceId ||
       !scriptText.trim()
     ) {
-      showToast(
-        "Please select character, voice, and enter text",
-        "error"
-      );
+      showToast("Please select character, voice, and enter text", "error");
       return;
     }
 
@@ -222,9 +224,13 @@ export default function Home() {
 
     setIsGenerating(true);
     setVideoStatus("pending");
-    setVideoId(null);
+    setAgentVideoId(null);
     setVideoUrl(null);
     setThumbnailUrl(null);
+
+    const structuredPrompt = `${agentPrompt.trim()}
+
+    Make this a ${agentDuration} second video. Use ${agentOrientation} format.`;
 
     try {
       const res = await fetch("/api/heygen/agent", {
@@ -232,16 +238,18 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           avatarId: agentSelectedAvatar.id,
-          prompt: agentPrompt,
-          voiceId: agentVoiceId,
+          prompt: structuredPrompt,
+          durationSec: agentDuration,
+          orientation: agentOrientation,
         }),
       });
       const data = await res.json();
+
       if (data.error) {
         showToast(data.error, "error");
         setVideoStatus("failed");
       } else {
-        setVideoId(data.video_id);
+        setAgentVideoId(data.video_id);
         setVideoStatus("pending");
         showToast("Agent video generation started", "success");
       }
@@ -256,8 +264,7 @@ export default function Home() {
   useEffect(() => {
     if (!videoId) return;
 
-    const isFinished =
-      videoStatus === "completed" || videoStatus === "failed";
+    const isFinished = videoStatus === "completed" || videoStatus === "failed";
     if (isFinished) return;
 
     const pollStatus = async () => {
@@ -289,6 +296,46 @@ export default function Home() {
     const interval = setInterval(pollStatus, 30000);
     return () => clearInterval(interval);
   }, [videoId, videoStatus, showToast]);
+  console.log("agentID", agentVideoId);
+
+  useEffect(() => {
+    if (!agentVideoId) return;
+
+    const isFinished = videoStatus === "completed" || videoStatus === "failed";
+    if (isFinished) return;
+
+    const pollAgentVideoStatus = async () => {
+      try {
+        const res = await fetch(`/api/heygen/status?id=${agentVideoId}`);
+        const data = await res.json();
+        console.log("data", data);
+
+        if (data.error) {
+          showToast(data.error, "error");
+          setVideoStatus("failed");
+          return;
+        }
+
+        setVideoStatus(data.status);
+
+        if (data.status === "completed") {
+          setVideoUrl(data.video_url || null);
+          setThumbnailUrl(data.thumbnail_url || null);
+          setAgentVideoId(null);
+          showToast("Agent video generation completed!", "success");
+        } else if (data.status === "failed") {
+          setAgentVideoId(null);
+          showToast(data.error || "Agent video generation failed", "error");
+        }
+      } catch (error) {
+        console.error("Agent video status poll error:", error);
+      }
+    };
+
+    pollAgentVideoStatus();
+    const interval = setInterval(pollAgentVideoStatus, 20000);
+    return () => clearInterval(interval);
+  }, [agentVideoId, videoStatus, showToast]);
 
   const canGenerateGenerateMode =
     selectedCharacterId &&
@@ -300,7 +347,8 @@ export default function Home() {
   const canGenerateAgentMode =
     agentSelectedAvatar &&
     agentPrompt.trim().length > 0 &&
-    videoStatus === "idle";
+    videoStatus === "idle" &&
+    !agentVideoId;
 
   const selectedCharacter = characters.find(
     (c) => c.id === selectedCharacterId && c.type === selectedCharacterType
@@ -337,10 +385,26 @@ export default function Home() {
             >
               Agent Video
             </button>
+            <button
+              onClick={() => setMode("streaming")}
+              className={`px-6 py-2 rounded-xl font-medium transition-all ${
+                mode === "streaming"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              Streaming Avatar
+            </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div
+          className={`grid gap-6 ${
+            mode === "streaming"
+              ? "grid-cols-1 max-w-2xl mx-auto"
+              : "grid-cols-1 lg:grid-cols-2"
+          }`}
+        >
           <div className="animate-fade-in">
             {mode === "generate" ? (
               <>
@@ -397,7 +461,9 @@ export default function Home() {
                         <select
                           value={selectedAspectRatio}
                           onChange={(e) =>
-                            setSelectedAspectRatio(e.target.value as AspectRatio)
+                            setSelectedAspectRatio(
+                              e.target.value as AspectRatio
+                            )
                           }
                           className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
                         >
@@ -495,6 +561,14 @@ export default function Home() {
                   )}
                 </button>
               </>
+            ) : mode === "streaming" ? (
+              <StreamingAvatarUI
+                voices={voices}
+                voicesLoading={voicesLoading}
+                onLoadVoices={loadVoices}
+                onError={(message) => showToast(message, "error")}
+                onSuccess={(message) => showToast(message, "success")}
+              />
             ) : (
               <AgentVideoUI
                 characters={characters}
@@ -507,6 +581,10 @@ export default function Home() {
                 onPromptChange={setAgentPrompt}
                 selectedVoiceId={agentVoiceId}
                 onSelectVoice={setAgentVoiceId}
+                duration={agentDuration}
+                onDurationChange={setAgentDuration}
+                orientation={agentOrientation}
+                onOrientationChange={setAgentOrientation}
                 isGenerating={isGenerating}
                 videoStatus={videoStatus}
                 onGenerate={generateAgentVideo}
@@ -515,80 +593,82 @@ export default function Home() {
             )}
           </div>
 
-          <div className="space-y-6">
-            <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Video Preview
-              </h2>
-              {videoStatus === "idle" && (
-                <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <svg
-                      className="w-16 h-16 mx-auto mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <p>Generate a video to preview</p>
-                  </div>
-                </div>
-              )}
-              {(videoStatus === "pending" ||
-                videoStatus === "waiting" ||
-                videoStatus === "processing") && (
-                <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="relative w-20 h-20 mx-auto mb-4">
-                      <div className="absolute inset-0 border-4 border-gray-300 rounded-full"></div>
-                      <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+          {mode !== "streaming" && (
+            <div className="space-y-6">
+              <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Video Preview
+                </h2>
+                {videoStatus === "idle" && (
+                  <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center text-gray-400">
+                    <div className="text-center">
+                      <svg
+                        className="w-16 h-16 mx-auto mb-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <p>Generate a video to preview</p>
                     </div>
-                    <p className="text-gray-600 font-medium">
-                      {videoStatus === "pending" && "Video is queued..."}
-                      {videoStatus === "waiting" && "Waiting to start..."}
-                      {videoStatus === "processing" && "Processing..."}
-                    </p>
-                    <p className="text-gray-400 text-sm mt-1">
-                      This may take a few minutes
-                    </p>
                   </div>
-                </div>
-              )}
-              {videoStatus === "failed" && (
-                <div className="aspect-video bg-red-50 rounded-xl flex items-center justify-center">
-                  <div className="text-center text-red-600">
-                    <svg
-                      className="w-16 h-16 mx-auto mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
-                    <p className="font-medium">Video generation failed</p>
-                    <p className="text-sm mt-1">Please try again</p>
+                )}
+                {(videoStatus === "pending" ||
+                  videoStatus === "waiting" ||
+                  videoStatus === "processing") && (
+                  <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="relative w-20 h-20 mx-auto mb-4">
+                        <div className="absolute inset-0 border-4 border-gray-300 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                      </div>
+                      <p className="text-gray-600 font-medium">
+                        {videoStatus === "pending" && "Video is queued..."}
+                        {videoStatus === "waiting" && "Waiting to start..."}
+                        {videoStatus === "processing" && "Processing..."}
+                      </p>
+                      <p className="text-gray-400 text-sm mt-1">
+                        This may take a few minutes
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
-              {videoStatus === "completed" && videoUrl && (
-                <VideoPlayer
-                  videoUrl={videoUrl}
-                  thumbnailUrl={thumbnailUrl || undefined}
-                />
-              )}
-            </section>
-          </div>
+                )}
+                {videoStatus === "failed" && (
+                  <div className="aspect-video bg-red-50 rounded-xl flex items-center justify-center">
+                    <div className="text-center text-red-600">
+                      <svg
+                        className="w-16 h-16 mx-auto mb-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <p className="font-medium">Video generation failed</p>
+                      <p className="text-sm mt-1">Please try again</p>
+                    </div>
+                  </div>
+                )}
+                {videoStatus === "completed" && videoUrl && (
+                  <VideoPlayer
+                    videoUrl={videoUrl}
+                    thumbnailUrl={thumbnailUrl || undefined}
+                  />
+                )}
+              </section>
+            </div>
+          )}
         </div>
 
         <Modal
