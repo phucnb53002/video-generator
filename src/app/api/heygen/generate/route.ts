@@ -4,6 +4,10 @@ import {
   CharacterType,
   AspectRatio,
   TalkingStyle,
+  CharacterSettings,
+  VoiceSettings,
+  CaptionSettings,
+  BackgroundSettings,
 } from "@/lib/heygen";
 
 interface Payload {
@@ -15,6 +19,10 @@ interface Payload {
   talkingStyle: TalkingStyle;
   includeCaptions: boolean;
   lineHeight?: number;
+  characterSettings?: CharacterSettings;
+  voiceSettings?: VoiceSettings;
+  captionSettings?: CaptionSettings;
+  backgroundSettings?: BackgroundSettings;
 }
 
 export async function POST(request: Request) {
@@ -30,6 +38,10 @@ export async function POST(request: Request) {
       talkingStyle,
       includeCaptions,
       lineHeight,
+      characterSettings,
+      voiceSettings,
+      captionSettings,
+      backgroundSettings,
     } = body;
 
     if (!characterId) {
@@ -39,7 +51,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!characterType || !["avatar", "talking_photo"].includes(characterType)) {
+    if (
+      !characterType ||
+      !["avatar", "talking_photo"].includes(characterType)
+    ) {
       return NextResponse.json(
         { error: "Valid character type is required" },
         { status: 400 }
@@ -47,17 +62,11 @@ export async function POST(request: Request) {
     }
 
     if (!voiceId) {
-      return NextResponse.json(
-        { error: "Voice is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Voice is required" }, { status: 400 });
     }
 
     if (!text || text.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Text is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
     const result = await generateVideo({
@@ -69,6 +78,10 @@ export async function POST(request: Request) {
       talkingStyle: talkingStyle || "stable",
       includeCaptions: includeCaptions || false,
       lineHeight,
+      characterSettings,
+      voiceSettings,
+      captionSettings,
+      backgroundSettings,
     });
 
     return NextResponse.json(result);

@@ -24,6 +24,36 @@ export interface VoiceItem {
 export type AspectRatio = "16:9" | "9:16" | "1:1";
 export type TalkingStyle = "stable" | "expressive";
 
+// Character settings
+export interface CharacterSettings {
+  expression?: string;
+  super_resolution?: boolean;
+  matting?: boolean;
+}
+
+// Voice settings
+export interface VoiceSettings {
+  speed?: number;
+  pitch?: number;
+  emotion?: string;
+}
+
+// Caption settings
+export type CaptionTextAlign = "left" | "center" | "right";
+export interface CaptionSettings {
+  color?: string;
+  text_align?: CaptionTextAlign;
+}
+
+// Background settings
+export type BackgroundType = "color" | "image" | "video";
+export interface BackgroundSettings {
+  type: BackgroundType;
+  color?: string;
+  image_asset_id?: string;
+  video_asset_id?: string;
+}
+
 export const ASPECT_RATIOS: Record<
   AspectRatio,
   { width: number; height: number }
@@ -135,6 +165,10 @@ export interface GenerateVideoPayload {
   talkingStyle: TalkingStyle;
   includeCaptions: boolean;
   lineHeight?: number;
+  characterSettings?: CharacterSettings;
+  voiceSettings?: VoiceSettings;
+  captionSettings?: CaptionSettings;
+  backgroundSettings?: BackgroundSettings;
 }
 
 export interface GenerateVideoResponse {
@@ -154,30 +188,89 @@ export async function generateVideo(
           scale: 1,
           avatar_style: "normal",
           talking_style: payload.talkingStyle,
+          ...(payload.characterSettings?.expression && {
+            expression: payload.characterSettings.expression,
+          }),
+          ...(payload.characterSettings?.super_resolution !== undefined && {
+            super_resolution: payload.characterSettings.super_resolution,
+          }),
+          ...(payload.characterSettings?.matting !== undefined && {
+            matting: payload.characterSettings.matting,
+          }),
         }
       : {
           type: "talking_photo" as const,
           talking_photo_id: payload.characterId,
+          ...(payload.characterSettings?.expression && {
+            expression: payload.characterSettings.expression,
+          }),
+          ...(payload.characterSettings?.super_resolution !== undefined && {
+            super_resolution: payload.characterSettings.super_resolution,
+          }),
+          ...(payload.characterSettings?.matting !== undefined && {
+            matting: payload.characterSettings.matting,
+          }),
         };
+
+  const voice: Record<string, unknown> = {
+    type: "text",
+    input_text: payload.text,
+    voice_id: payload.voiceId,
+    speed: payload.voiceSettings?.speed ?? 1,
+    pitch: payload.voiceSettings?.pitch ?? 0,
+    duration: "1",
+  };
+
+  if (payload.voiceSettings?.emotion) {
+    voice.emotion = payload.voiceSettings.emotion;
+  }
 
   const videoInput: Record<string, unknown> = {
     character,
-    voice: {
-      type: "text",
-      input_text: payload.text,
-      voice_id: payload.voiceId,
-      speed: "1",
-      pitch: "0",
-      duration: "1",
-    },
+    voice,
   };
 
   if (payload.includeCaptions) {
-    videoInput.text = {
+    const textObject: Record<string, unknown> = {
       type: "text",
       text: payload.text,
       line_height: payload.lineHeight || 1.2,
     };
+
+    if (payload.captionSettings?.color) {
+      textObject.color = payload.captionSettings.color;
+    }
+
+    if (payload.captionSettings?.text_align) {
+      textObject.text_align = payload.captionSettings.text_align;
+    }
+
+    videoInput.text = textObject;
+  }
+
+  if (payload.backgroundSettings) {
+    const backgroundObject: Record<string, unknown> = {
+      type: payload.backgroundSettings.type,
+    };
+
+    if (
+      payload.backgroundSettings.type === "color" &&
+      payload.backgroundSettings.color
+    ) {
+      backgroundObject.color = payload.backgroundSettings.color;
+    } else if (payload.backgroundSettings.type === "image") {
+      if (payload.backgroundSettings.image_asset_id) {
+        backgroundObject.image_asset_id =
+          payload.backgroundSettings.image_asset_id;
+      }
+    } else if (payload.backgroundSettings.type === "video") {
+      if (payload.backgroundSettings.video_asset_id) {
+        backgroundObject.video_asset_id =
+          payload.backgroundSettings.video_asset_id;
+      }
+    }
+
+    videoInput.background = backgroundObject;
   }
 
   const requestBody = {
@@ -188,6 +281,7 @@ export async function generateVideo(
     },
     video_inputs: [videoInput],
   };
+  console.log("requestBody", JSON.stringify(requestBody));
 
   const response = await fetch(`${HEYGEN_BASE_URL}/v2/video/generate`, {
     method: "POST",

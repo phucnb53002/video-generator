@@ -53,6 +53,34 @@ export default function Home() {
   const [includeCaptions, setIncludeCaptions] = useState(false);
   const [lineHeight, setLineHeight] = useState(1.2);
 
+  // Character settings
+  const [characterExpression, setCharacterExpression] = useState<string>("");
+  const [superResolution, setSuperResolution] = useState(false);
+  const [matting, setMatting] = useState(false);
+
+  // Voice settings
+  const [voiceSpeed, setVoiceSpeed] = useState(1);
+  const [voicePitch, setVoicePitch] = useState(0);
+  const [voiceEmotion, setVoiceEmotion] = useState<string>("");
+
+  // Caption settings
+  const [captionColor, setCaptionColor] = useState<string>("#000000");
+  const [captionTextAlign, setCaptionTextAlign] = useState<
+    "left" | "center" | "right"
+  >("center");
+
+  // Background settings
+  const [backgroundType, setBackgroundType] = useState<
+    "color" | "image" | "video"
+  >("color");
+  const [backgroundColor, setBackgroundColor] = useState<string>("#ffffff");
+  const [backgroundImageFile, setBackgroundImageFile] = useState<File | null>(
+    null
+  );
+  const [backgroundVideoFile, setBackgroundVideoFile] = useState<File | null>(
+    null
+  );
+
   const [charactersLoading, setCharactersLoading] = useState(false);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -197,6 +225,28 @@ export default function Home() {
           talkingStyle: selectedTalkingStyle,
           includeCaptions,
           lineHeight,
+          characterSettings: {
+            ...(characterExpression && { expression: characterExpression }),
+            ...(superResolution !== undefined && {
+              super_resolution: superResolution,
+            }),
+            ...(matting !== undefined && { matting: matting }),
+          },
+          voiceSettings: {
+            speed: voiceSpeed,
+            pitch: voicePitch,
+            ...(voiceEmotion && { emotion: voiceEmotion }),
+          },
+          ...(includeCaptions && {
+            captionSettings: {
+              color: captionColor,
+              text_align: captionTextAlign,
+            },
+          }),
+          backgroundSettings: {
+            type: backgroundType,
+            ...(backgroundType === "color" && { color: backgroundColor }),
+          },
         }),
       });
       const data = await res.json();
@@ -293,10 +343,9 @@ export default function Home() {
     };
 
     pollStatus();
-    const interval = setInterval(pollStatus, 30000);
+    const interval = setInterval(pollStatus, 20000);
     return () => clearInterval(interval);
   }, [videoId, videoStatus, showToast]);
-  console.log("agentID", agentVideoId);
 
   useEffect(() => {
     if (!agentVideoId) return;
@@ -508,21 +557,303 @@ export default function Home() {
                     </div>
 
                     {includeCaptions && (
-                      <div className="animate-fade-in">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Line Height
+                      <div className="animate-fade-in space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Line Height
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.5"
+                            max="3"
+                            value={lineHeight}
+                            onChange={(e) =>
+                              setLineHeight(Number(e.target.value))
+                            }
+                            className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Caption Color
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="color"
+                                value={captionColor}
+                                onChange={(e) =>
+                                  setCaptionColor(e.target.value)
+                                }
+                                className="h-12 p-1 border-2 border-gray-200 rounded-xl cursor-pointer"
+                              />
+                              <input
+                                type="text"
+                                value={captionColor}
+                                onChange={(e) =>
+                                  setCaptionColor(e.target.value)
+                                }
+                                className="flex-1 p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                                placeholder="#000000"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Text Alignment
+                            </label>
+                            <select
+                              value={captionTextAlign}
+                              onChange={(e) =>
+                                setCaptionTextAlign(
+                                  e.target.value as "left" | "center" | "right"
+                                )
+                              }
+                              className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                            >
+                              <option value="left">Left</option>
+                              <option value="center">Center</option>
+                              <option value="right">Right</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    Character Settings
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Expression
+                      </label>
+                      <select
+                        value={characterExpression}
+                        onChange={(e) => setCharacterExpression(e.target.value)}
+                        className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                      >
+                        <option value="">Default</option>
+                        <option value="happy">Happy</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex-1 flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                        <input
+                          type="checkbox"
+                          id="superResolution"
+                          checked={superResolution}
+                          onChange={(e) => setSuperResolution(e.target.checked)}
+                          className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label
+                          htmlFor="superResolution"
+                          className="text-sm font-medium text-gray-700"
+                        >
+                          Super Resolution
                         </label>
+                      </div>
+                      <div className="flex-1 flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                        <input
+                          type="checkbox"
+                          id="matting"
+                          checked={matting}
+                          onChange={(e) => setMatting(e.target.checked)}
+                          className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label
+                          htmlFor="matting"
+                          className="text-sm font-medium text-gray-700"
+                        >
+                          Matting
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    Voice Settings
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Speed
+                      </label>
+                      <div className="flex gap-3">
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2"
+                          step="0.1"
+                          value={voiceSpeed}
+                          onChange={(e) =>
+                            setVoiceSpeed(Number(e.target.value))
+                          }
+                          className="flex-1"
+                        />
                         <input
                           type="number"
-                          step="0.1"
                           min="0.5"
-                          max="3"
-                          value={lineHeight}
+                          max="1.5"
+                          step="0.1"
+                          value={voiceSpeed}
                           onChange={(e) =>
-                            setLineHeight(Number(e.target.value))
+                            setVoiceSpeed(Number(e.target.value))
                           }
-                          className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                          className="w-20 p-2 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all text-center"
                         />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Pitch
+                      </label>
+                      <div className="flex gap-3">
+                        <input
+                          type="range"
+                          min="-50"
+                          max="50"
+                          step="5"
+                          value={voicePitch}
+                          onChange={(e) =>
+                            setVoicePitch(Number(e.target.value))
+                          }
+                          className="flex-1"
+                        />
+                        <input
+                          type="number"
+                          min="-50"
+                          max="50"
+                          step="5"
+                          value={voicePitch}
+                          onChange={(e) =>
+                            setVoicePitch(Number(e.target.value))
+                          }
+                          className="w-20 p-2 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all text-center"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Emotion
+                      </label>
+                      <select
+                        value={voiceEmotion}
+                        onChange={(e) => setVoiceEmotion(e.target.value)}
+                        className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                      >
+                        <option value="">Default</option>
+                        <option value="Excited">Excited</option>
+                        <option value="Friendly">Friendly</option>
+                        <option value="Serious">Serious</option>
+                        <option value="Soothing">Soothing</option>
+                        <option value="Broadcaster">Broadcaster</option>
+                        <option value="Angry">Angry</option>
+                      </select>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    Background Settings
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Background Type
+                      </label>
+                      <select
+                        value={backgroundType}
+                        onChange={(e) =>
+                          setBackgroundType(
+                            e.target.value as "color" | "image" | "video"
+                          )
+                        }
+                        className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                      >
+                        <option value="color">Color</option>
+                        <option value="image">Image</option>
+                        <option value="video">Video</option>
+                      </select>
+                    </div>
+
+                    {backgroundType === "color" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Background Color
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={backgroundColor}
+                            onChange={(e) => setBackgroundColor(e.target.value)}
+                            className="h-12 p-1 border-2 border-gray-200 rounded-xl cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={backgroundColor}
+                            onChange={(e) => setBackgroundColor(e.target.value)}
+                            className="flex-1 p-3 border-2 border-gray-200 rounded-xl bg-white text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                            placeholder="#ffffff"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {backgroundType === "image" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Upload Background Image
+                        </label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-500 transition-colors">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              setBackgroundImageFile(
+                                e.target.files?.[0] || null
+                              )
+                            }
+                            className="w-full"
+                          />
+                          {backgroundImageFile && (
+                            <p className="text-sm text-green-600 mt-2">
+                              Selected: {backgroundImageFile.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {backgroundType === "video" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Upload Background Video
+                        </label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-500 transition-colors">
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={(e) =>
+                              setBackgroundVideoFile(
+                                e.target.files?.[0] || null
+                              )
+                            }
+                            className="w-full"
+                          />
+                          {backgroundVideoFile && (
+                            <p className="text-sm text-green-600 mt-2">
+                              Selected: {backgroundVideoFile.name}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
