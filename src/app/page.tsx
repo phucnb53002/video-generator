@@ -357,7 +357,6 @@ export default function Home() {
       try {
         const res = await fetch(`/api/heygen/status?id=${agentVideoId}`);
         const data = await res.json();
-        console.log("data", data);
 
         if (data.error) {
           showToast(data.error, "error");

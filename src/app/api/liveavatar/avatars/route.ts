@@ -30,10 +30,8 @@ export async function GET() {
     }
 
     const userResponse = await response.json();
-    console.log("userResponse", userResponse);
 
     const userData = userResponse?.data?.results || [];
-    console.log("userData", userData);
 
     const avatars: StreamingAvatarItem[] = userData.map(
       (avatar: Record<string, unknown>) => ({

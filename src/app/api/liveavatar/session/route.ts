@@ -4,7 +4,10 @@ const LIVEAVATAR_API_URL =
   process.env.LIVEAVATAR_API_URL || "https://api.liveavatar.com";
 const LIVEAVATAR_API_KEY = process.env.LIVEAVATAR_API_KEY || "";
 
-const activeSessions = new Map<string, { sessionId: string; sessionToken: string }>();
+const activeSessions = new Map<
+  string,
+  { sessionId: string; sessionToken: string }
+>();
 
 async function closeExistingSession(sessionToken?: string, sessionId?: string) {
   if (sessionToken && sessionId) {
@@ -23,14 +26,13 @@ async function closeExistingSession(sessionToken?: string, sessionId?: string) {
       console.error("Error closing session:", error);
     }
   }
-  
-  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log("body", body);
 
     const { avatarId, voiceId } = body;
 
@@ -45,9 +47,12 @@ export async function POST(request: NextRequest) {
     const existingSession = activeSessions.get("current");
     if (existingSession) {
       console.log("Closing existing session before creating new one");
-      await closeExistingSession(existingSession.sessionToken, existingSession.sessionId);
+      await closeExistingSession(
+        existingSession.sessionToken,
+        existingSession.sessionId
+      );
       activeSessions.delete("current");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
     const response = await fetch(`${LIVEAVATAR_API_URL}/v1/sessions/token`, {
@@ -66,7 +71,6 @@ export async function POST(request: NextRequest) {
         },
       }),
     });
-    console.log("response", response);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -77,16 +81,12 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log("data", data);
 
     activeSessions.set("current", {
       sessionId: data.data.session_id,
       sessionToken: data.data.session_token,
     });
 
-    // DO NOT start the session here - let the frontend handle it
-    // This avoids the "session already exists" error when frontend calls session.start()
-    
     return NextResponse.json({
       sessionId: data.data.session_id,
       sessionToken: data.data.session_token,
@@ -104,10 +104,10 @@ export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const { sessionId, sessionToken } = body;
-    
+
     await closeExistingSession(sessionToken, sessionId);
     activeSessions.delete("current");
-    
+
     return NextResponse.json({ message: "Session closed successfully" });
   } catch (error) {
     console.error("Error closing session:", error);

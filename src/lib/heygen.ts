@@ -281,7 +281,6 @@ export async function generateVideo(
     },
     video_inputs: [videoInput],
   };
-  console.log("requestBody", JSON.stringify(requestBody));
 
   const response = await fetch(`${HEYGEN_BASE_URL}/v2/video/generate`, {
     method: "POST",
