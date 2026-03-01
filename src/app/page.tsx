@@ -80,6 +80,9 @@ export default function Home() {
   const [backgroundVideoFile, setBackgroundVideoFile] = useState<File | null>(
     null
   );
+  const [backgroundImageAssetId, setBackgroundImageAssetId] = useState<string | null>(null);
+  const [backgroundVideoAssetId, setBackgroundVideoAssetId] = useState<string | null>(null);
+  const [isUploadingBackground, setIsUploadingBackground] = useState(false);
 
   const [charactersLoading, setCharactersLoading] = useState(false);
   const [voicesLoading, setVoicesLoading] = useState(false);
@@ -155,6 +158,60 @@ export default function Home() {
     }
   };
 
+  const uploadBackgroundFile = async (file: File): Promise<string | null> => {
+    setIsUploadingBackground(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/heygen/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        showToast(data.error, "error");
+        return null;
+      }
+
+      showToast("Background uploaded successfully", "success");
+      return data.asset_id;
+    } catch {
+      showToast("Failed to upload background file", "error");
+      return null;
+    } finally {
+      setIsUploadingBackground(false);
+    }
+  };
+
+  const handleBackgroundImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setBackgroundImageFile(file);
+    setBackgroundImageAssetId(null);
+
+    if (file) {
+      const assetId = await uploadBackgroundFile(file);
+      if (assetId) {
+        setBackgroundImageAssetId(assetId);
+      }
+    }
+  };
+
+  const handleBackgroundVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setBackgroundVideoFile(file);
+    setBackgroundVideoAssetId(null);
+
+    if (file) {
+      const assetId = await uploadBackgroundFile(file);
+      if (assetId) {
+        setBackgroundVideoAssetId(assetId);
+      }
+    }
+  };
+
   const openAvatarModal = () => {
     setTempSelectedCharacterId(selectedCharacterId);
     setTempSelectedCharacterType(selectedCharacterType);
@@ -206,6 +263,16 @@ export default function Home() {
       return;
     }
 
+    if (backgroundType === "image" && !backgroundImageAssetId) {
+      showToast("Please upload a background image", "error");
+      return;
+    }
+
+    if (backgroundType === "video" && !backgroundVideoAssetId) {
+      showToast("Please upload a background video", "error");
+      return;
+    }
+
     setIsGenerating(true);
     setVideoStatus("pending");
     setVideoId(null);
@@ -246,6 +313,8 @@ export default function Home() {
           backgroundSettings: {
             type: backgroundType,
             ...(backgroundType === "color" && { color: backgroundColor }),
+            ...(backgroundType === "image" && { image_asset_id: backgroundImageAssetId }),
+            ...(backgroundType === "video" && { video_asset_id: backgroundVideoAssetId }),
           },
         }),
       });
@@ -390,7 +459,10 @@ export default function Home() {
     selectedCharacterType &&
     selectedVoiceId &&
     scriptText.trim().length > 0 &&
-    videoStatus === "idle";
+    videoStatus === "idle" &&
+    !isUploadingBackground &&
+    (backgroundType !== "image" || backgroundImageAssetId !== null) &&
+    (backgroundType !== "video" || backgroundVideoAssetId !== null);
 
   const canGenerateAgentMode =
     agentSelectedAvatar &&
@@ -814,17 +886,20 @@ export default function Home() {
                         <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-500 transition-colors">
                           <input
                             type="file"
-                            accept="image/*"
-                            onChange={(e) =>
-                              setBackgroundImageFile(
-                                e.target.files?.[0] || null
-                              )
-                            }
+                            accept="image/png,image/jpeg"
+                            onChange={handleBackgroundImageChange}
                             className="w-full"
+                            disabled={isUploadingBackground}
                           />
-                          {backgroundImageFile && (
+                          {isUploadingBackground && (
+                            <div className="flex items-center justify-center gap-2 mt-2">
+                              <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                              <span className="text-sm text-gray-500">Uploading...</span>
+                            </div>
+                          )}
+                          {backgroundImageFile && backgroundImageAssetId && (
                             <p className="text-sm text-green-600 mt-2">
-                              Selected: {backgroundImageFile.name}
+                              Uploaded: {backgroundImageFile.name}
                             </p>
                           )}
                         </div>
@@ -839,17 +914,20 @@ export default function Home() {
                         <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-500 transition-colors">
                           <input
                             type="file"
-                            accept="video/*"
-                            onChange={(e) =>
-                              setBackgroundVideoFile(
-                                e.target.files?.[0] || null
-                              )
-                            }
+                            accept="video/mp4,video/webm"
+                            onChange={handleBackgroundVideoChange}
                             className="w-full"
+                            disabled={isUploadingBackground}
                           />
-                          {backgroundVideoFile && (
+                          {isUploadingBackground && (
+                            <div className="flex items-center justify-center gap-2 mt-2">
+                              <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                              <span className="text-sm text-gray-500">Uploading...</span>
+                            </div>
+                          )}
+                          {backgroundVideoFile && backgroundVideoAssetId && (
                             <p className="text-sm text-green-600 mt-2">
-                              Selected: {backgroundVideoFile.name}
+                              Uploaded: {backgroundVideoFile.name}
                             </p>
                           )}
                         </div>

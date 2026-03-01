@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const LIVEAVATAR_API_URL =
-  process.env.LIVEAVATAR_API_URL || "https://api.liveavatar.com";
-const LIVEAVATAR_API_KEY = process.env.LIVEAVATAR_API_KEY || "";
+const LIVE_AVATAR_API_URL =
+  process.env.LIVE_AVATAR_API_URL || "https://api.liveavatar.com";
+const LIVE_AVATAR_API_KEY = process.env.LIVE_AVATAR_API_KEY || "";
 
 export interface StreamingAvatarItem {
   id: string;
@@ -12,10 +12,10 @@ export interface StreamingAvatarItem {
 
 export async function GET() {
   try {
-    const response = await fetch(`${LIVEAVATAR_API_URL}/v1/avatars`, {
+    const response = await fetch(`${LIVE_AVATAR_API_URL}/v1/avatars`, {
       method: "GET",
       headers: {
-        "X-API-Key": LIVEAVATAR_API_KEY,
+        "X-API-Key": LIVE_AVATAR_API_KEY,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
